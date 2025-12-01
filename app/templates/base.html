@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1080, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>RoomCTL</title>
+  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+  <link rel="stylesheet" href="static/roomctl.css">
+  <link rel="stylesheet" href="static/tailwind.css">
+</head>
+<!-- <body class="bg-slate-900 text-slate-100 overflow-hidden"> -->
+<body>
+  {% block content %}{% endblock %}
+  <script>
+    (function(){
+      try {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(proto + '//' + location.host + '/ws');
+        ws.onmessage = (ev)=>{
+          try{
+            const s = JSON.parse(ev.data||'{}');
+            const el = document.getElementById('badge-input');
+            if (el){
+              const inp = (s.projector && s.projector.input) || s.projector_input || '—';
+              const pwr = (s.projector && s.projector.power===true) || s.projector_power===true;
+              el.textContent = 'Input: ' + inp;
+              el.className = 'badge ' + (pwr?'ok':'warn');
+            }
+            const st = document.getElementById('json-state');
+            if(st){ st.textContent = JSON.stringify(s, null, 2); }
+          }catch(e){}
+        };
+      } catch(e){}
+    })();
+  </script>
+</body>
+</html>

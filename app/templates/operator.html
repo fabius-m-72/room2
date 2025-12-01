@@ -1,0 +1,823 @@
+
+
+
+{% extends "base.html" %}
+{% block content %}
+<div class="screen">
+  <header class="header">
+    <div class="title">ROOMCTL — Area Operatore</div>
+  </header>
+
+  <!-- main senza scroll, 1080×720 -->
+  <main class="main op-main-no-scroll">
+
+    <!-- Barra Tab -->
+    <nav class="tabs row wrap" style="gap:8px; margin-bottom:8px;">
+      <button class="tab-btn" data-tab="proj">Proiettore</button>
+      <button class="tab-btn" data-tab="dsp">DSP Audio</button>
+      <button class="tab-btn" data-tab="shelly">Shelly</button>
+      <button class="tab-btn" data-tab="special">Special Command</button>
+    </nav>
+
+    <!-- CONTENUTO A TAB (una sola riga a tre colonne virtuali) -->
+    <div id="tab-proj" class="tab-panel">
+      <!-- PROIETTORE -->
+      <section class="panel">
+        <div class="panel-title">PROIETTORE</div>
+        <label class="op-label small">Power</label>
+        <div class="row wrap">
+          <form method="post" action="/operator/projector/power" class="row gap28"><input type="hidden" name="on" value="true"><button class="btn-mini ok w-full">ACCENDI</button></form>
+          <form method="post" action="/operator/projector/power" class="row gap28"><input type="hidden" name="on" value="false"><button class="btn-mini danger w-full">SPEGNI</button></form>
+        </div>
+
+        <div class="row wrap">
+          <label class="op-label small">Input</label>
+          <form method="post" action="/operator/projector/input" class="row gap28"><input type="hidden" name="source" value="HDMI1"><button class="btn-mini w-full">HDMI 1</button></form>
+          <form method="post" action="/operator/projector/input" class="row gap28"><input type="hidden" name="source" value="HDMI2"><button class="btn-mini w-full">HDMI 2</button></form>
+        </div>
+
+        <div class="row wrap">
+          <form method="post" action="/operator/toggle_combined" class="row gap8">
+            <input type="hidden" name="value" value="{{ 'false' if show_combined else 'true' }}">
+            <span class="op-label small">Mostra “Video Combinata (HDMI2)”</span>
+            <button class="btn-mini">{{ 'ON' if show_combined else 'OFF' }}</button>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <div id="tab-dsp" class="tab-panel hidden">
+  <!-- DSP -->
+  <section class="panel">
+
+    <!-- MUTE ALL -->
+    <div class="row wrap">
+      <label class="op-label small">MUTE globale&nbsp;&nbsp;-->&nbsp;&nbsp;</label>
+      <form method="post" action="/operator/dsp/mute_all" class="row gap8">
+        <input type="hidden" name="on" value="true">
+        <button class="btn-mini danger w-full">MUTE ALL</button>
+      </form>
+      <form method="post" action="/operator/dsp/mute_all" class="row gap8">
+        <input type="hidden" name="on" value="false">
+        <button class="btn-mini ok w-full">UNMUTE ALL</button>
+      </form>
+    </div>
+
+    <!-- ===== INGRESSI (IN A..D) ===== -->
+    <div class="sub-title mt6">INPUT CHANNELS</div>
+
+    <!-- Riga IN A + IN B -->
+    <div class="row wrap gap8 dsp-row">
+      <!-- IN A -->
+      <div class="dsp-channel">
+        {% set used_in0 = (dsp_used is not defined) or dsp_used.get('in0') %}
+        <div class="dsp-row-body row gap4">
+          <!-- Toggle Used IN0 -->
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="in0"
+                   value="{{ 'False' if used_in0 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_in0 else 'background:dimgray' }}">
+              IN A
+            </button>
+          </form>
+
+          <!-- GAIN - -->
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="in_a">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_in0 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <!-- Valore -->
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "in_a" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["in_a"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <!-- GAIN + -->
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="in_a">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_in0 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- IN B -->
+      <div class="dsp-channel">
+        {% set used_in1 = (dsp_used is not defined) or dsp_used.get('in1') %}
+        <div class="dsp-row-body row gap4">
+          <!-- Toggle Used IN1 -->
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="in1"
+                   value="{{ 'False' if used_in1 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_in1 else 'background:dimgray' }}">
+              IN B
+            </button>
+          </form>
+
+          <!-- GAIN - -->
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="in_b">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_in1 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <!-- Valore -->
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "in_b" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["in_b"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <!-- GAIN + -->
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="in_b">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_in1 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Riga IN C + IN D -->
+    <div class="row wrap gap8 dsp-row">
+      <!-- IN C -->
+      <div class="dsp-channel">
+        {% set used_in2 = (dsp_used is not defined) or dsp_used.get('in2') %}
+        <div class="dsp-row-body row gap4">
+          <!-- Toggle Used IN2 -->
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="in2"
+                   value="{{ 'False' if used_in2 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_in2 else 'background:dimgray' }}">
+              IN C
+            </button>
+          </form>
+
+          <!-- GAIN - -->
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="in_c">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_in2 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <!-- Valore -->
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "in_c" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["in_c"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <!-- GAIN + -->
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="in_c">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_in2 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- IN D -->
+      <div class="dsp-channel">
+        {% set used_in3 = (dsp_used is not defined) or dsp_used.get('in3') %}
+        <div class="dsp-row-body row gap4">
+          <!-- Toggle Used IN3 -->
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="in3"
+                   value="{{ 'False' if used_in3 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_in3 else 'background:dimgray' }}">
+              IN D
+            </button>
+          </form>
+
+          <!-- GAIN - -->
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="in_d">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_in3 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <!-- Valore -->
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "in_d" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["in_d"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <!-- GAIN + -->
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="in_d">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_in3 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== USCITE (OUT 0..7) ===== -->
+    <div class="sub-title mt6">OUTPUT CHANNELS</div>
+
+    <!-- OUT 0 + OUT 1 -->
+    <div class="row wrap gap8 dsp-row">
+      <!-- OUT 0 -->
+      <div class="dsp-channel">
+        {% set used_out0 = (dsp_used is not defined) or dsp_used.get('out0') %}
+        <div class="dsp-row-body row gap4">
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="out0"
+                   value="{{ 'False' if used_out0 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_out0 else 'background:dimgray' }}">
+              OUT 0
+            </button>
+          </form>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out0">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out0 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "out0" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["out0"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out0">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out0 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- OUT 1 -->
+      <div class="dsp-channel">
+        {% set used_out1 = (dsp_used is not defined) or dsp_used.get('out1') %}
+        <div class="dsp-row-body row gap4">
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="out1"
+                   value="{{ 'False' if used_out1 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_out1 else 'background:dimgray' }}">
+              OUT 1
+            </button>
+          </form>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out1">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out1 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "out1" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["out1"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out1">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out1 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUT 2 + OUT 3 -->
+    <div class="row wrap gap8 dsp-row">
+      <!-- OUT 2 -->
+      <div class="dsp-channel">
+        {% set used_out2 = (dsp_used is not defined) or dsp_used.get('out2') %}
+        <div class="dsp-row-body row gap4">
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="out2"
+                   value="{{ 'False' if used_out2 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_out2 else 'background:dimgray' }}">
+              OUT 2
+            </button>
+          </form>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out2">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out2 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "out2" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["out2"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out2">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out2 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- OUT 3 -->
+      <div class="dsp-channel">
+        {% set used_out3 = (dsp_used is not defined) or dsp_used.get('out3') %}
+        <div class="dsp-row-body row gap4">
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="out3"
+                   value="{{ 'False' if used_out3 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_out3 else 'background:dimgray' }}">
+              OUT 3
+            </button>
+          </form>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out3">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out3 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "out3" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["out3"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out3">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out3 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUT 4 + OUT 5 -->
+    <div class="row wrap gap8 dsp-row">
+      <!-- OUT 4 -->
+      <div class="dsp-channel">
+        {% set used_out4 = (dsp_used is not defined) or dsp_used.get('out4') %}
+        <div class="dsp-row-body row gap4">
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="out4"
+                   value="{{ 'False' if used_out4 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_out4 else 'background:dimgray' }}">
+              OUT 4
+            </button>
+          </form>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out4">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out4 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "out4" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["out4"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out4">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out4 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- OUT 5 -->
+      <div class="dsp-channel">
+        {% set used_out5 = (dsp_used is not defined) or dsp_used.get('out5') %}
+        <div class="dsp-row-body row gap4">
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="out5"
+                   value="{{ 'False' if used_out5 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_out5 else 'background:dimgray' }}">
+              OUT 5
+            </button>
+          </form>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out5">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out5 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "out5" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["out5"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out5">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out5 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUT 6 + OUT 7 -->
+    <div class="row wrap gap8 dsp-row">
+      <!-- OUT 6 -->
+      <div class="dsp-channel">
+        {% set used_out6 = (dsp_used is not defined) or dsp_used.get('out6') %}
+        <div class="dsp-row-body row gap4">
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="out6"
+                   value="{{ 'False' if used_out6 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_out6 else 'background:dimgray' }}">
+              OUT 6
+            </button>
+          </form>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out6">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out6 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "out6" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["out6"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out6">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out6 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- OUT 7 -->
+      <div class="dsp-channel">
+        {% set used_out7 = (dsp_used is not defined) or dsp_used.get('out7') %}
+        <div class="dsp-row-body row gap4">
+          <form method="post" action="/operator/dsp/used" class="row gap4">
+            <input type="hidden" name="out7"
+                   value="{{ 'False' if used_out7 else 'True' }}">
+            <button class="btn-mini dsp-used-btn"
+                    style="{{ 'background:green' if used_out7 else 'background:dimgray' }}">
+              OUT 7
+            </button>
+          </form>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out7">
+            <input type="hidden" name="delta" value="-1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out7 else '' }}">GAIN&nbsp;−</button>
+          </form>
+
+          <span class="op-label small mono dsp-label">
+            {% if dsp_levels and "out7" in dsp_levels %}
+              {{ "%.1f"|format(dsp_levels["out7"]["gain"] or 0.0) }}&nbsp;dB
+            {% else %}
+              &mdash;
+            {% endif %}
+          </span>
+
+          <form method="post" action="/operator/dsp/gain" class="row gap4">
+            <input type="hidden" name="bus" value="out7">
+            <input type="hidden" name="delta" value="+1">
+            <button class="btn-mini w-full {{ 'disabled' if not used_out7 else '' }}">GAIN&nbsp;+</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRESET -->
+    <div class="row wrap gap8">
+      <div class="sub-title mt6">Recall Preset&nbsp;&nbsp;-->&nbsp;&nbsp;</div>
+      <form method="post" action="/operator/dsp/recall" class="row gap8">
+        <input type="hidden" name="preset" value="F00"><button class="btn-mini w-full">0 (F00)</button>
+      </form>
+      <form method="post" action="/operator/dsp/recall" class="row gap8">
+        <input type="hidden" name="preset" value="U01"><button class="btn-mini w-full">1 (U01)</button>
+      </form>
+      <form method="post" action="/operator/dsp/recall" class="row gap8">
+        <input type="hidden" name="preset" value="U02"><button class="btn-mini w-full">2 (U02)</button>
+      </form>
+      <form method="post" action="/operator/dsp/recall" class="row gap8">
+        <input type="hidden" name="preset" value="U03"><button class="btn-mini w-full">3 (U03)</button>
+      </form>
+      <form method="post" action="/operator/dsp/recall" class="row gap8">
+        <input type="hidden" name="preset" value="U04"><button class="btn-mini w-full">4 (U04)</button>
+      </form>
+      <form method="post" action="/operator/dsp/recall" class="row gap8">
+        <input type="hidden" name="preset" value="U05"><button class="btn-mini w-full">5 (U05)</button>
+      </form>
+      <form method="post" action="/operator/dsp/recall" class="row gap8">
+        <input type="hidden" name="preset" value="U06"><button class="btn-mini w-full">6 (U06)</button>
+      </form>
+    </div>
+
+  </section>
+</div>
+
+
+
+    <div id="tab-shelly" class="tab-panel hidden">
+      <!-- SHELLY -->
+      <section class="panel">
+        <div class="panel-title">SHELLY</div>
+
+        <label class="op-label small">Proiettore</label>
+        <div class="row wrap">
+          <form method="post" action="/operator/shelly/set" class="row gap8">
+            <input type="hidden" name="sid" value="shelly1_ch1"><input type="hidden" name="on" value="true">
+            <button class="btn-mini ok w-full">Sh1_ch1 Proj ON</button>
+          </form>
+          <form method="post" action="/operator/shelly/set" class="row gap8">
+            <input type="hidden" name="sid" value="shelly1_ch1"><input type="hidden" name="on" value="false">
+            <button class="btn-mini danger w-full">Sh1_ch1 Pro OFF</button>
+          </form>
+        </div>
+
+        <label class="op-label small">DSP</label>
+        <div class="row wrap">
+          <form method="post" action="/operator/shelly/set" class="row gap8">
+            <input type="hidden" name="sid" value="shelly1_ch2"><input type="hidden" name="on" value="true">
+            <button class="btn-mini ok w-full">Sh1_ch2 DSP ON</button>
+          </form>
+          <form method="post" action="/operator/shelly/set" class="row gap8">
+            <input type="hidden" name="sid" value="shelly1_ch2"><input type="hidden" name="on" value="false">
+            <button class="btn-mini danger w-full">Sh1_ch2 DSP OFF</button>
+          </form>
+        </div>
+
+        <label class="op-label small">Telo proiezione</label>
+        <div class="row wrap">
+          <form method="post" action="/operator/shelly/pulse" class="row gap8">
+            <input type="hidden" name="sid" value="shelly2_ch1">
+            <button class="btn-mini w-full">Sh2_ch1 Giù </button>
+          </form>
+          <form method="post" action="/operator/shelly/pulse" class="row gap8">
+            <input type="hidden" name="sid" value="shelly2_ch2">
+            <button class="btn-mini w-full">Sh2_ch2 Su </button>
+          </form>
+        </div>
+
+        <div class="sub-title mt6">Stato</div>
+        <pre id="json-state" class="statebox tiny">{}</pre>
+      </section>
+    </div>
+    <div id="tab-special" class="tab-panel hidden">
+      <!-- SPECIAL COMMAND -->
+      <section class="panel">
+        <div class="panel-title">SPECIAL COMMAND</div>
+
+        {% set sched = power_schedule or {} %}
+        {% set selected_days = sched.get('days', ['mon','tue','wed','thu','fri']) %}
+        {% set sched_on = sched.get('on_time', '07:30') %}
+        {% set sched_off = sched.get('off_time', '19:00') %}
+        {% set sched_enabled = sched.get('enabled', False) %}
+
+        <div class="sub-title mt6">Programmazione Raspberry Pi 5</div>
+        <p class="op-help">
+          Imposta accensione e spegnimento giornalieri del Raspberry Pi (RTC con batteria tampone,
+          alimentazione sempre presente). La configurazione è salvata in <code>power_schedule.yaml</code>
+          e può essere applicata sul dispositivo con lo script nella cartella <code>config</code>.
+        </p>
+
+        <form method="post" action="/operator/power_schedule" class="column gap8 power-schedule-form">
+          <div class="row wrap gap12 align-center">
+            <label class="op-label small">Accensione</label>
+            <input type="time" name="on_time" value="{{ sched_on }}" class="input-time">
+            <label class="op-label small">Spegnimento</label>
+            <input type="time" name="off_time" value="{{ sched_off }}" class="input-time">
+            <label class="op-label small row align-center gap4">
+              <input type="checkbox" name="enabled" value="true" {% if sched_enabled %}checked{% endif %}>
+              <span>Abilitato</span>
+            </label>
+          </div>
+
+          <div class="row wrap gap8">
+            <label class="op-label small" style="min-width: 120px;">Giorni attivi</label>
+            <div class="row wrap gap8 weekday-row">
+              {% for code,label in [('mon','Lun'),('tue','Mar'),('wed','Mer'),('thu','Gio'),('fri','Ven'),('sat','Sab'),('sun','Dom')] %}
+              <label class="weekday-chip">
+                <input type="checkbox" name="days" value="{{ code }}" {% if code in selected_days %}checked{% endif %}>
+                <span>{{ label }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="row wrap gap8 align-center">
+            <div class="op-help" style="margin:0;">
+              Gli orari sono in formato 24h (hh:mm). Assicurati che l'RTC sia sincronizzato.
+            </div>
+            <button class="btn-mini" type="submit">Salva programmazione</button>
+          </div>
+        </form>
+
+
+        <div class="row wrap" style="margin-top:12px;">
+          <form method="post" action="/ui/special/reboot_terminal"
+                onsubmit="return confirm('Sei sicuro di voler riavviare il terminale?');">
+            <button class="btn-operator">
+              Riavvia terminale
+            </button>
+          </form>
+        </div>
+
+        <p class="op-help" style="margin-top:16px;">
+          Usa questo comando solo se il terminale non risponde correttamente.
+        </p>
+      </section>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <div class="status">Stato: {{ state.text or '' }}</div>
+    <div id="badge-input" class="badge">Input: {{ (state.projector.input if state.projector else '—') if state else '—' }}</div>
+    <form method="post" action="/auth/logout"><button class="btn-mini danger">Logout</button></form>
+  </footer>
+</div>
+
+<!-- Script Tab (client-side) -->
+<script>
+(function(){
+  const TAB_KEY = "roomctl_operator_tab";
+    const $btns = Array.from(document.querySelectorAll('.tab-btn'));
+  const $panels = {
+    proj:    document.getElementById('tab-proj'),
+    dsp:     document.getElementById('tab-dsp'),
+    shelly:  document.getElementById('tab-shelly'),
+    special: document.getElementById('tab-special')
+  };
+
+  function showTab(name){
+    // pulsanti
+    $btns.forEach(b => b.classList.toggle('tab-active', b.dataset.tab===name));
+    // pannelli
+    Object.entries($panels).forEach(([k,el]) => {
+      if(!el) return;
+      el.classList.toggle('hidden', k!==name);
+    });
+    try{ localStorage.setItem(TAB_KEY, name); }catch(e){}
+  }
+  // click
+  $btns.forEach(b => b.addEventListener('click', ()=> showTab(b.dataset.tab)));
+  // iniziale
+  let initial = 'proj';
+  try {
+    const saved = localStorage.getItem(TAB_KEY);
+    if (saved && $panels[saved]) initial = saved;
+  } catch(e){}
+  showTab(initial);
+})();
+</script>
+
+<!-- Stili minimi per Tab (riuso classi esistenti, niente collisioni) -->
+<style>
+.tab-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--c-border, #ccc);
+  border-radius: 6px;
+  background: var(--c-bg, #8f8f8f);
+  font-weight: 600;
+}
+.tab-btn.tab-active {
+  background: var(--c-accent, #1a6bab);
+  border-color: var(--c-accent-b, #8ac3ff);
+}
+.tab-panel.hidden { display:none; }
+
+/* === DSP compatto === */
+.dsp-row {
+  align-items: stretch;
+  margin-top: 4px;
+}
+
+.dsp-channel {
+  flex: 1;
+  min-width: 0;
+  padding-right: 8px;
+  border-right: 1px dashed rgba(148,163,184,0.4);
+}
+.dsp-row .dsp-channel:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.dsp-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dsp-row-body {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* label valore gain: bordo + larghezza fissa (~8 caratteri) */
+.dsp-label {
+  border: 1px solid var(--c-border, #ccc);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: inline-block;
+  min-width: 10ch;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Pulsanti nel tab DSP più bassi per guadagnare spazio */
+#tab-dsp .btn-mini {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  min-height: 30px;
+  font-size: 0.8rem;
+}
+
+/* Toggle Used compatto */
+.dsp-used-btn {
+  min-width: 72px;
+  background: var(--c-accent, #696969);
+}
+
+.btn-mini.disabled {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+/* Pianificazione Raspberry */
+.power-schedule-form {
+  border: 1px solid var(--c-border, #cbd5e1);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(226, 232, 240, 0.25);
+}
+
+.input-time {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--c-border, #cbd5e1);
+  background: #354369;
+  font-weight: 600;
+}
+
+.weekday-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--c-border, #cbd5e1);
+  background: #354369;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+.weekday-chip input {
+  width: 16px;
+  height: 16px;
+}
+
+</style>
+
+{% endblock %}

@@ -1,0 +1,9 @@
+days:
+- mon
+- tue
+- wed
+- thu
+- fri
+enabled: true
+off_time: '17:39'
+on_time: '17:37'
