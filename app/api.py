@@ -1,3 +1,6 @@
+from datetime import datetime
+import subprocess
+
 from fastapi import APIRouter,HTTPException
 from pydantic import BaseModel
 import os,yaml
@@ -78,6 +81,10 @@ class PowerScheduleReq(BaseModel):
     enabled: bool = True
 
 
+class SetDateTimeReq(BaseModel):
+    datetime: datetime
+
+
 @router.get("/power/schedule")
 async def get_power_schedule():
     """Restituisce la pianificazione di accensione/spegnimento del Raspberry."""
@@ -120,6 +127,25 @@ async def api_reboot_terminal(background_tasks: BackgroundTasks):
 
     # rispondi subito, prima che il processo venga ucciso
     return {"status": "reboot requested"}
+
+
+@router.post("/special/set_datetime")
+async def api_set_datetime(body: SetDateTimeReq):
+    """Aggiorna la data/ora del sistema e la salva sull'RTC."""
+
+    dt = body.datetime
+    dt_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        subprocess.run(["sudo", "date", "-s", dt_str], check=True)
+        subprocess.run(["sudo", "hwclock", "--systohc"], check=True)
+    except subprocess.CalledProcessError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Impossibile impostare data/ora: {exc}",
+        ) from exc
+
+    return {"status": "datetime updated", "datetime": dt_str}
 
 async def _wait_power_state(pj: PJLinkClient, desired: int, budget_s: int) -> bool:
     # desired: 1=ON, 0=STANDBY; molti Epson rispondono 2=cooling, 3=warm-up

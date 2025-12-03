@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter,Request,Depends,Form,HTTPException
 from fastapi.responses import HTMLResponse,RedirectResponse,JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -335,6 +337,39 @@ async def op_power_schedule(req: Request, _=Depends(require_operator)):
 
     return RedirectResponse("/operator", status_code=303)
 
+
+
+@router.post("/ui/special/set_datetime")
+async def ui_set_datetime(req: Request, _=Depends(require_operator)):
+    form = await req.form()
+    date_str = str(form.get("date", "")).strip()
+    time_str = str(form.get("time", "")).strip()
+
+    state = get_public_state()
+
+    if not date_str or not time_str:
+        state["text"] = "Inserisci data e ora valide"
+        set_public_state(state)
+        return RedirectResponse("/operator", status_code=303)
+
+    try:
+        dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        state["text"] = "Formato data/ora non valido"
+        set_public_state(state)
+        return RedirectResponse("/operator", status_code=303)
+
+    try:
+        await _post(
+            f"{ROOMCTL_BASE}/api/special/set_datetime",
+            {"datetime": dt.isoformat()},
+        )
+        state["text"] = "Data e ora aggiornate"
+    except HTTPException as exc:
+        state["text"] = f"Errore impostazione data/ora: {exc.detail}"
+
+    set_public_state(state)
+    return RedirectResponse("/operator", status_code=303)
 
 
 @router.post('/ui/special/reboot_terminal')

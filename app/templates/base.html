@@ -13,6 +13,35 @@
   {% block content %}{% endblock %}
   <script>
     (function(){
+      // Clock label (top-right)
+      function formatClock(date){
+        const dateStr = new Intl.DateTimeFormat('it-IT', { weekday:'short', day:'numeric', month:'short' })
+          .format(date)
+          .replace(',', '')
+          .trim();
+        const timeStr = new Intl.DateTimeFormat('it-IT', { hour:'2-digit', minute:'2-digit' }).format(date);
+        return dateStr.charAt(0).toUpperCase() + dateStr.slice(1) + '  ' + timeStr;
+      }
+
+      function updateClock(){
+        const now = new Date();
+        document.querySelectorAll('[data-clock]').forEach(el => {
+          el.textContent = formatClock(now);
+        });
+      }
+
+      function scheduleClock(){
+        updateClock();
+        const now = new Date();
+        const msToNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+        setTimeout(() => {
+          updateClock();
+          setInterval(updateClock, 60 * 1000);
+        }, msToNextMinute);
+      }
+
+      scheduleClock();
+
       try {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
         const ws = new WebSocket(proto + '//' + location.host + '/ws');

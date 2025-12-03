@@ -26,12 +26,15 @@ html, body { width:100%; height:100%; }
 body {
   display:flex; align-items:center; justify-content:center;
   margin: 0;
-  background:#0f172a; color:#e2e8f0; overflow:hidden;
+  background:#0f172a; color:#fff; overflow:hidden;
   font-family: var(--font-family);
 }
 
 button, input, select, textarea {
   font-family: inherit;
+  color: #fff;
+  background-color: #1f2937;
+  border: 1px solid rgba(255,255,255,.22);
 }
 
 /* Wrapper fisso 1080x720 */
@@ -39,7 +42,7 @@ button, input, select, textarea {
   width: var(--screen-w);
   height: var(--screen-h);
   background: #0f172a; /* slate-900 */
-  color: #e2e8f0;
+  color: #fff;
   border-radius: 12px;
   overflow: hidden;
   display: grid;
@@ -52,7 +55,14 @@ button, input, select, textarea {
   display: flex; align-items: center;
 }
 .title{
-  font-size: 16px; letter-spacing: .2em; font-weight: 600; color: #bae6fd;
+  font-size: 16px; letter-spacing: .2em; font-weight: 600; color: #fff;
+}
+.clock-label{
+  margin-left: auto;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
 }
 
 /* Main area */
@@ -78,11 +88,12 @@ button, input, select, textarea {
   font-weight: 800;
   line-height: var(--btn-line);
   box-shadow: 0 8px 18px rgba(0,0,0,.35), inset 0 0 0 2px rgba(255,255,255,.2);
+  color: #fff;
 }
-.btn-green{ background: rgba(136,212,120,.95); color:#0b3b2a; }
-.btn-blue { background: rgba(162,220,255,.95); color:#0b2a3b; }
-.btn-sand { background: rgba(210,200,150,.95); color:#3a2b0b; }
-.btn-ice  { background: rgba(200,224,224,.95); color:#0b2b2b; }
+.btn-green{ background: #2f855a; color:#fff; }
+.btn-blue { background: #2563eb; color:#fff; }
+.btn-sand { background: #b7791f; color:#fff; }
+.btn-ice  { background: #0ea5e9; color:#fff; }
 
 /* Footer */
 .footer{
@@ -102,20 +113,20 @@ button, input, select, textarea {
 .badge{
   padding: 10px 16px;
   border-radius: 14px;
-  background: rgba(170,220,210,.85);
-  color:#0a2e2e; font-weight:800;
+  background: rgba(255,255,255,.14);
+  color:#fff; font-weight:800;
   box-shadow:0 2px 6px rgba(0,0,0,.25);
   min-width: 160px; text-align: center;
 }
-.badge.warn{ background: rgba(210,170,170,.85); color:#3a1212; }
+.badge.warn{ background: rgba(239,68,68,.25); color:#fff; }
 
 .pin-form{ display:flex; align-items:center; gap:10px; }
 .pin-input{
-  border-radius:10px; padding:10px 12px; color:#0a1422; min-width: 160px;
+  border-radius:10px; padding:10px 12px; color:#fff; min-width: 160px; background:#1f2937; border:1px solid rgba(255,255,255,.24);
 }
 .btn-operator{
   border-radius:12px; padding:12px 16px; font-weight:800;
-  background: rgba(170,220,210,.85); color:#0a2e2e;
+  background: #1f3d48; color:#fff;
 }
 /* ====== Layout operatore compatto (no scroll) ====== */
 .op-main-no-scroll { overflow: hidden; padding-top: 6px; padding-bottom: 0; }
@@ -192,7 +203,7 @@ button, input, select, textarea {
 }
 
 .pin-error {
-  color: #ff6666;
+  color: #fff;
   margin-bottom: 8px;
 }
 
@@ -215,20 +226,20 @@ button, input, select, textarea {
   font-size: 1.6rem;
   padding: 16px 0;
   border-radius: 12px;
-  background: #f3f3f3;      /* sfondo chiaro */
-  color: #111;              /* testo scuro */
-  border: 1px solid #ccc;   /* bordo leggero */
+  background: #1f2937;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.22);
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 
 /* effetto hover / active opzionali */
 .pin-key:hover {
-  background: #e7e7e7;
+  background: #273549;
 }
 
 .pin-key:active {
-  background: #dddddd;
+  background: #1b2636;
   transform: translateY(1px);
 }
 }
@@ -248,20 +259,20 @@ button, input, select, textarea {
   flex: 1;
   padding: 10px 0;
   border-radius: 10px;
-  background: #f3f3f3;      /* sfondo chiaro */
-  color: #111;
-  border: 1px solid #ccc;
+  background: #1f2937;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.22);
   cursor: pointer;
 }
 
 .pin-cancel:hover,
 .pin-ok:hover {
-  background: #e7e7e7;
+  background: #273549;
 }
 
 .pin-cancel:active,
 .pin-ok:active {
-  background: #dddddd;
+  background: #1b2636;
   transform: translateY(1px);
 }
 
