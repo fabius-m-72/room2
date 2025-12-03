@@ -6,21 +6,22 @@
 <div class="screen">
   <header class="header">
     <div class="title">ROOMCTL — Area Operatore</div>
+    <div class="clock-label" data-clock></div>
   </header>
 
   <!-- main senza scroll, 1080×720 -->
   <main class="main op-main-no-scroll">
 
     <!-- Barra Tab -->
-    <nav class="tabs row wrap" style="gap:8px; margin-bottom:8px;">
-      <button class="tab-btn" data-tab="proj">Proiettore</button>
-      <button class="tab-btn" data-tab="dsp">DSP Audio</button>
-      <button class="tab-btn" data-tab="shelly">Shelly</button>
-      <button class="tab-btn" data-tab="special">Special Command</button>
+    <nav class="tabs row wrap" style="gap:8px; margin-bottom:8px;" role="tablist">
+      <button id="tab-btn-proj" class="tab-btn" data-tab="proj" type="button" role="tab" aria-controls="tab-proj">Proiettore</button>
+      <button id="tab-btn-dsp" class="tab-btn" data-tab="dsp" type="button" role="tab" aria-controls="tab-dsp">DSP Audio</button>
+      <button id="tab-btn-shelly" class="tab-btn" data-tab="shelly" type="button" role="tab" aria-controls="tab-shelly">Shelly</button>
+      <button id="tab-btn-special" class="tab-btn" data-tab="special" type="button" role="tab" aria-controls="tab-special">Special Command</button>
     </nav>
 
     <!-- CONTENUTO A TAB (una sola riga a tre colonne virtuali) -->
-    <div id="tab-proj" class="tab-panel">
+    <div id="tab-proj" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-proj">
       <!-- PROIETTORE -->
       <section class="panel">
         <div class="panel-title">PROIETTORE</div>
@@ -46,7 +47,7 @@
       </section>
     </div>
 
-    <div id="tab-dsp" class="tab-panel hidden">
+    <div id="tab-dsp" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-dsp">
   <!-- DSP -->
   <section class="panel">
 
@@ -554,7 +555,7 @@
 
 
 
-    <div id="tab-shelly" class="tab-panel hidden">
+    <div id="tab-shelly" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-shelly">
       <!-- SHELLY -->
       <section class="panel">
         <div class="panel-title">SHELLY</div>
@@ -599,7 +600,7 @@
         <pre id="json-state" class="statebox tiny">{}</pre>
       </section>
     </div>
-    <div id="tab-special" class="tab-panel hidden">
+    <div id="tab-special" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-btn-special">
       <!-- SPECIAL COMMAND -->
       <section class="panel">
         <div class="panel-title">SPECIAL COMMAND</div>
@@ -609,13 +610,6 @@
         {% set sched_on = sched.get('on_time', '07:30') %}
         {% set sched_off = sched.get('off_time', '19:00') %}
         {% set sched_enabled = sched.get('enabled', False) %}
-
-        <div class="sub-title mt6">Programmazione Raspberry Pi 5</div>
-        <p class="op-help">
-          Imposta accensione e spegnimento giornalieri del Raspberry Pi (RTC con batteria tampone,
-          alimentazione sempre presente). La configurazione è salvata in <code>power_schedule.yaml</code>
-          e può essere applicata sul dispositivo con lo script nella cartella <code>config</code>.
-        </p>
 
         <form method="post" action="/operator/power_schedule" class="column gap8 power-schedule-form">
           <div class="row wrap gap12 align-center">
@@ -646,6 +640,24 @@
               Gli orari sono in formato 24h (hh:mm). Assicurati che l'RTC sia sincronizzato.
             </div>
             <button class="btn-mini" type="submit">Salva programmazione</button>
+          </div>
+        </form>
+
+
+        <form method="post" action="/ui/special/set_datetime" class="column gap8">
+          <div class="row wrap gap12 align-center">
+            <label class="op-label small" for="rtc-date">Data</label>
+            <input id="rtc-date" type="date" name="date" class="input-time">
+            <label class="op-label small" for="rtc-time">Ora</label>
+            <input id="rtc-time" type="time" name="time" class="input-time" step="60">
+            <button class="btn-mini" type="submit">Imposta data/ora</button>
+          </div>
+
+          <div class="row wrap gap8 align-center">
+            <div class="op-help" style="margin:0;">
+              Se il terminale rimane senza alimentazione a lungo, inserisci qui data e ora correnti per
+              aggiornare l'orologio di sistema e il modulo RTC.
+            </div>
           </div>
         </form>
 
@@ -688,7 +700,11 @@
 
   function showTab(name){
     // pulsanti
-    $btns.forEach(b => b.classList.toggle('tab-active', b.dataset.tab===name));
+    $btns.forEach(b => {
+      const isActive = b.dataset.tab===name;
+      b.classList.toggle('tab-active', isActive);
+      b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
     // pannelli
     Object.entries($panels).forEach(([k,el]) => {
       if(!el) return;
@@ -696,8 +712,17 @@
     });
     try{ localStorage.setItem(TAB_KEY, name); }catch(e){}
   }
-  // click
-  $btns.forEach(b => b.addEventListener('click', ()=> showTab(b.dataset.tab)));
+  // click/touch
+  function handleTab(event){
+    event.preventDefault();
+    const target = event.currentTarget;
+    if (!target || !target.dataset) return;
+    showTab(target.dataset.tab);
+  }
+  $btns.forEach(b => {
+    b.addEventListener('click', handleTab);
+    b.addEventListener('touchend', handleTab, {passive:false});
+  });
   // iniziale
   let initial = 'proj';
   try {
@@ -705,6 +730,14 @@
     if (saved && $panels[saved]) initial = saved;
   } catch(e){}
   showTab(initial);
+
+  const rtcDate = document.getElementById('rtc-date');
+  const rtcTime = document.getElementById('rtc-time');
+  if (rtcDate && rtcTime && !rtcDate.value && !rtcTime.value) {
+    const now = new Date();
+    rtcDate.value = now.toISOString().slice(0, 10);
+    rtcTime.value = now.toISOString().slice(11, 16);
+  }
 })();
 </script>
 
@@ -716,6 +749,8 @@
   border-radius: 6px;
   background: var(--c-bg, #8f8f8f);
   font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 .tab-btn.tab-active {
   background: var(--c-accent, #1a6bab);
