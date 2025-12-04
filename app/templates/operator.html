@@ -651,6 +651,14 @@
             <label class="op-label small" for="rtc-time">Ora</label>
             <input id="rtc-time" type="time" name="time" class="input-time" step="60">
             <button class="btn-mini" type="submit">Imposta data/ora</button>
+            <span class="op-label small">
+              Vbat RTC:
+              {% if rtc_vbat is not none %}
+                {{ "%.3f"|format(rtc_vbat) }}&nbsp;V
+              {% else %}
+                &mdash;
+              {% endif %}
+            </span>
           </div>
 
           <div class="row wrap gap8 align-center">
@@ -684,6 +692,20 @@
     <div id="badge-input" class="badge">Input: {{ (state.projector.input if state.projector else '—') if state else '—' }}</div>
     <form method="post" action="/auth/logout"><button class="btn-mini danger">Logout</button></form>
   </footer>
+</div>
+
+<!-- OVERLAY OPERAZIONI -->
+<div id="scene-overlay" class="scene-overlay hidden">
+  <div class="scene-overlay-backdrop"></div>
+
+  <div class="scene-overlay-dialog">
+    <div class="scene-overlay-title" id="scene-overlay-title">
+      Operazione in corso
+    </div>
+    <div class="scene-status-label" id="scene-status-label">
+      Operazione in corso, attendere…
+    </div>
+  </div>
 </div>
 
 <!-- Script Tab (client-side) -->
@@ -738,6 +760,46 @@
     rtcDate.value = now.toISOString().slice(0, 10);
     rtcTime.value = now.toISOString().slice(11, 16);
   }
+
+  const sceneOverlay      = document.getElementById('scene-overlay');
+  const sceneStatusLabel  = document.getElementById('scene-status-label');
+  const sceneOverlayTitle = document.getElementById('scene-overlay-title');
+
+  function openSceneOverlay(initialTitle, initialText) {
+    if (!sceneOverlay) return;
+    if (sceneOverlayTitle && initialTitle) {
+      sceneOverlayTitle.textContent = initialTitle;
+    }
+    if (sceneStatusLabel && initialText) {
+      sceneStatusLabel.textContent = initialText;
+    }
+    sceneOverlay.classList.remove('hidden');
+  }
+
+  const forms = document.querySelectorAll('form');
+  forms.forEach(form => {
+    form.addEventListener('submit', () => {
+      const action = form.getAttribute('action') || '';
+      let title = 'Operazione in corso';
+      let text  = 'Operazione in corso, attendere…';
+
+      if (action.includes('/ui/scene/avvio_semplice')) {
+        title = 'Avvio Lezione Semplice';
+        text  = 'Avvio lezione semplice in corso, attendere…';
+      } else if (action.includes('/ui/scene/avvio_video_combinata')) {
+        title = 'Avvio Lezione Video Combinata';
+        text  = 'Avvio lezione video combinata in corso, attendere…';
+      } else if (action.includes('/ui/scene/avvio_video')) {
+        title = 'Avvio Lezione Video';
+        text  = 'Avvio lezione video in corso, attendere…';
+      } else if (action.includes('/ui/scene/spegni_aula')) {
+        title = 'Fine Lezione – Spegni Aula';
+        text  = 'Arresto lezione e spegnimento aula in corso, attendere…';
+      }
+
+      openSceneOverlay(title, text);
+    });
+  });
 })();
 </script>
 

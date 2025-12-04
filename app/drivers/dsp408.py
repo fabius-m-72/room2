@@ -207,23 +207,30 @@ class DSP408Client:
 
 	async def mute_all(self, on: bool, used_inputs: Optional[Dict[str, bool]] = None,
 					   used_outputs: Optional[Dict[str, bool]] = None) -> None:
-		def _do():
-			in_map = used_inputs or {}
-			out_map = used_outputs or {}
+                  def _do():
+                          in_map = used_inputs or {}
+                          out_map = used_outputs or {}
 
-			# IN 0..3 e OUT 0..3
-			for ch in (0, 1, 2, 3):
-				ch_s = str(ch)
-				mute_in = bool(on and in_map.get(ch_s, True))
-				self._cli.set_mute(is_output=False, channel=ch, mute=mute_in)
-				mute_out = bool(on and out_map.get(ch_s, True))
-				self._cli.set_mute(is_output=True, channel=ch, mute=mute_out)
+                          def _as_bool(val: object, default: bool = True) -> bool:
+                                  if val is None:
+                                          return default
+                                  if isinstance(val, str):
+                                          return val.strip().lower() in ("true", "1", "on", "yes")
+                                  return bool(val)
 
-			# OUT 4..7
-			for ch in (4, 5, 6, 7):
-				ch_s = str(ch)
-				mute_out = bool(on and out_map.get(ch_s, True))
-				self._cli.set_mute(is_output=True, channel=ch, mute=mute_out)
+                          # IN 0..3 e OUT 0..3
+                          for ch in (0, 1, 2, 3):
+                                  ch_s = str(ch)
+                                  mute_in = bool(on) and _as_bool(in_map.get(ch_s, True))
+                                  self._cli.set_mute(is_output=False, channel=ch, mute=mute_in)
+                                  mute_out = bool(on) and _as_bool(out_map.get(ch_s, True))
+                                  self._cli.set_mute(is_output=True, channel=ch, mute=mute_out)
+
+                          # OUT 4..7
+                          for ch in (4, 5, 6, 7):
+                                  ch_s = str(ch)
+                                  mute_out = bool(on) and _as_bool(out_map.get(ch_s, True))
+                                  self._cli.set_mute(is_output=True, channel=ch, mute=mute_out)
 
 		await asyncio.to_thread(_do)
 

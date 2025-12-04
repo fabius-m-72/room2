@@ -1,4 +1,6 @@
 from datetime import datetime
+from pathlib import Path
+import subprocess
 
 from fastapi import APIRouter,Request,Depends,Form,HTTPException
 from fastapi.responses import HTMLResponse,RedirectResponse,JSONResponse
@@ -47,6 +49,20 @@ def _get_dsp_used()->dict:
  for i in range(8):
   used[f"out{i}"]=bool(out_map.get(str(i),True))
  return used
+
+
+def _read_rtc_vbat() -> float | None:
+    """Legge la tensione batteria dell'RTC tramite vcgencmd, se disponibile."""
+
+    try:
+        output = subprocess.check_output(
+            "vcgencmd pmic_read_adc BATT_V", shell=True, text=True
+        )
+        val_str = output.split("=")[1].replace("V", "").strip()
+        val = float(val_str)
+        return round(val, 3)
+    except Exception:
+        return None
 
 
 async def _post(url: str, payload: dict | None = None):
@@ -173,6 +189,7 @@ async def auth_pin(pin: str = Form(...)):
 @router.get("/operator", response_class=HTMLResponse)
 async def operator_get(req: Request, _=Depends(require_operator)):
     state = get_public_state()
+    rtc_vbat = _read_rtc_vbat()
 
     # di default nessun dato DSP (per gestire eventuali errori)
     dsp_levels = None
@@ -203,6 +220,7 @@ async def operator_get(req: Request, _=Depends(require_operator)):
             "dsp_levels": dsp_levels,
             "dsp_used": dsp_used,
             "power_schedule": power_schedule,
+            "rtc_vbat": rtc_vbat,
         },
     )
 
