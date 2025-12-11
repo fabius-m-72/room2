@@ -10,7 +10,7 @@ from .auth import require_operator,login_with_pin,logout,get_token_from_cookie
 from .state import get_public_state,set_public_state
 from .config import devices
 router=APIRouter(); templates=Jinja2Templates(directory='app/templates')
-ROOMCTL_BASE=os.environ.get('ROOMCTL_BASE','http://127.0.0.1:8080')
+ROOMCTL_BASE=os.environ.get('ROOMCTL_BASE') or None
 UI_CONFIG=os.environ.get('ROOMCTL_UI_CONFIG','/opt/roomctl/config/ui.yaml')
 CONFIG_DEV=os.environ.get('ROOMCTL_DEVICES','/opt/roomctl/config/devices.yaml')
 
@@ -65,31 +65,90 @@ def _read_rtc_vbat() -> float | None:
         return None
 
 
-async def _post(url: str, payload: dict | None = None):
-  timeout = httpx.Timeout(connect=8.0, read=120.0, write=10.0, pool=8.0)
-  try:
-        async with httpx.AsyncClient(timeout=timeout) as c:
-          r = await c.post(url, json=payload or {})
-  except httpx.TimeoutException:
-		#qui decidi cosa fare
-        raise HTTPException(status_code=504, detail=f"Timeout parlando con {url}")
-  except httpx.RequestError as e:
-        raise HTTPException(status_code=504, detail=f"Timeout di rete verso {url}: {e}")
-		# Se il backend accetta e prosegue in background → 202
-  if r.status_code >= 500:
-        raise HTTPException(status_code=502, detail=f"Backend error {r.status_code}	da {url}")
-  if "application/json" in r.headers.get("content-type",""):
-        return r.json()
-  return r.text
-		
-async def _get(url: str) -> dict:
-    # stesso timeout "rilassato" di _post
-    timeout = httpx.Timeout(connect=5.0, read=20.0, write=10.0, pool=5.0)
-    async with httpx.AsyncClient(timeout=timeout) as c:
-        r = await c.get(url)
-        r.raise_for_status()
-        return r.json()
+def _api_candidates(path: str, req: Request | None) -> list[str]:
+    """Restituisce una lista di base URL da provare in ordine.
 
+    - Se `path` è già una URL assoluta, viene usata così com'è.
+    - Altrimenti prova, in ordine: ROOMCTL_BASE (se presente),
+      base_url della richiesta, fallback http://127.0.0.1:8080.
+    """
+
+    if path.startswith("http://") or path.startswith("https://"):
+        # path è già completo: non servono altre basi
+        return [path]
+
+    candidates: list[str] = []
+    if ROOMCTL_BASE:
+        candidates.append(ROOMCTL_BASE.rstrip("/"))
+    if req is not None:
+        base = str(req.base_url).rstrip("/")
+        if base and base not in candidates:
+            candidates.append(base)
+    # fallback finale sul servizio locale di default
+    if "http://127.0.0.1:8080" not in candidates:
+        candidates.append("http://127.0.0.1:8080")
+    return candidates
+
+
+def _api_url(base: str, path: str) -> str:
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    if not path.startswith('/'):
+        path = f'/{path}'
+    return f"{base}{path}"
+
+
+async def _post(path: str, payload: dict | None = None, req: Request | None = None):
+    timeout = httpx.Timeout(connect=8.0, read=120.0, write=10.0, pool=8.0)
+    last_err: httpx.RequestError | None = None
+
+    for base in _api_candidates(path, req):
+        url = _api_url(base, path)
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as c:
+                r = await c.post(url, json=payload or {})
+            if r.status_code >= 500:
+                raise HTTPException(status_code=502, detail=f"Backend error {r.status_code} da {url}")
+            if "application/json" in r.headers.get("content-type", ""):
+                return r.json()
+            return r.text
+        except httpx.ConnectError as e:
+            last_err = e
+            continue
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail=f"Timeout parlando con {url}")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=504, detail=f"Timeout di rete verso {url}: {e}")
+
+    raise HTTPException(
+        status_code=503,
+        detail=f"Impossibile contattare il backend API ({path}); tentativi: {', '.join(_api_candidates(path, req))}. Ultimo errore: {last_err}",
+    )
+
+
+async def _get(path: str, req: Request | None = None) -> dict:
+    timeout = httpx.Timeout(connect=5.0, read=20.0, write=10.0, pool=5.0)
+    last_err: httpx.RequestError | None = None
+
+    for base in _api_candidates(path, req):
+        url = _api_url(base, path)
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as c:
+                r = await c.get(url)
+                r.raise_for_status()
+                return r.json()
+        except httpx.ConnectError as e:
+            last_err = e
+            continue
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail=f"Timeout parlando con {url}")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=504, detail=f"Timeout di rete verso {url}: {e}")
+
+    raise HTTPException(
+        status_code=503,
+        detail=f"Impossibile contattare il backend API ({path}); tentativi: {', '.join(_api_candidates(path, req))}. Ultimo errore: {last_err}",
+    )
 def _token(req:Request): return get_token_from_cookie(req)
 
 def _set_state_text(message: str) -> dict:
@@ -112,10 +171,10 @@ async def home(req: Request, pin_error: bool = False):
     )
 
 @router.post('/ui/scene/avvio_semplice')
-async def ui_avvio_semplice():
+async def ui_avvio_semplice(req: Request):
     state = _set_state_text("Avvio lezione semplice in corso…")
     try:
-        _ = await _post(f"{ROOMCTL_BASE}/api/scene/avvio_semplice", {})
+        _ = await _post("/api/scene/avvio_semplice", {}, req)
     except HTTPException as exc:
         _set_state_text(f"Errore avvio lezione semplice: {exc.detail}")
         return RedirectResponse(url="/", status_code=303)
@@ -127,10 +186,10 @@ async def ui_avvio_semplice():
 
 
 @router.post('/ui/scene/avvio_video')
-async def ui_avvio_video():
+async def ui_avvio_video(req: Request):
     state = _set_state_text("Avvio lezione video in corso…")
     try:
-        _ = await _post(f"{ROOMCTL_BASE}/api/scene/avvio_proiettore", {})
+        _ = await _post("/api/scene/avvio_proiettore", {}, req)
     except HTTPException as exc:
         _set_state_text(f"Errore avvio lezione video: {exc.detail}")
         return RedirectResponse(url="/", status_code=303)
@@ -142,12 +201,13 @@ async def ui_avvio_video():
 
 
 @router.post('/ui/scene/avvio_video_combinata')
-async def ui_avvio_video_combinata():
+async def ui_avvio_video_combinata(req: Request):
     state = _set_state_text("Avvio lezione video combinata in corso…")
     try:
         _ = await _post(
-            f"{ROOMCTL_BASE}/api/scene/avvio_proiettore",
+            "/api/scene/avvio_proiettore",
             {"source": "HDMI2"},
+            req,
         )
     except HTTPException as exc:
         _set_state_text(f"Errore avvio lezione combinata: {exc.detail}")
@@ -160,10 +220,10 @@ async def ui_avvio_video_combinata():
 
    
 @router.post('/ui/scene/spegni_aula')
-async def ui_spegni_aula():
+async def ui_spegni_aula(req: Request):
     state = _set_state_text("Arresto lezione e spegnimento aula in corso…")
     try:
-        _ = await _post(f"{ROOMCTL_BASE}/api/scene/spegni_aula", {})
+        _ = await _post("/api/scene/spegni_aula", {}, req)
     except HTTPException as exc:
         _set_state_text(f"Errore spegnimento aula: {exc.detail}")
         return RedirectResponse(url="/", status_code=303)
@@ -194,7 +254,7 @@ async def operator_get(req: Request, _=Depends(require_operator)):
     # di default nessun dato DSP (per gestire eventuali errori)
     dsp_levels = None
     try:
-        dsp_levels = await _get(f"{ROOMCTL_BASE}/api/dsp/state")
+        dsp_levels = await _get("/api/dsp/state", req)
     except Exception:
         # se il DSP è spento / non raggiungibile, semplicemente
         # lasciamo dsp_levels = None e il template mostrerà "—"
@@ -207,7 +267,7 @@ async def operator_get(req: Request, _=Depends(require_operator)):
         dsp_used = None
 
     try:
-        power_schedule = await _get(f"{ROOMCTL_BASE}/api/power/schedule")
+        power_schedule = await _get("/api/power/schedule", req)
     except Exception:
         power_schedule = None
 
@@ -234,17 +294,17 @@ async def op_toggle_combined(value:bool=Form(...),_=Depends(require_operator)):
  _set_show_combined(value); return RedirectResponse('/operator',status_code=303)
 
 @router.post('/operator/projector/power')
-async def op_proj_power(on:bool=Form(...),_=Depends(require_operator)):
- await _post(f"{ROOMCTL_BASE}/api/projector/power",{'on':bool(on)}); return RedirectResponse('/operator',status_code=303)
+async def op_proj_power(req: Request,on:bool=Form(...),_=Depends(require_operator)):
+ await _post("/api/projector/power",{'on':bool(on)}, req); return RedirectResponse('/operator',status_code=303)
 
 @router.post('/operator/projector/input')
-async def op_proj_input(source:str=Form(...),_=Depends(require_operator)):
- await _post(f"{ROOMCTL_BASE}/api/projector/input",{'source':source}); return RedirectResponse('/operator',status_code=303)
+async def op_proj_input(req: Request,source:str=Form(...),_=Depends(require_operator)):
+ await _post("/api/projector/input",{'source':source}, req); return RedirectResponse('/operator',status_code=303)
 
 @router.post("/operator/dsp/mute_all")
-async def op_dsp_mute_all( on: bool = Form(...), _=Depends(require_operator),):
+async def op_dsp_mute_all(req: Request, on: bool = Form(...), _=Depends(require_operator),):
     # operator.html usa name="on", ma l'API vuole "mute"
-    await _post(f"{ROOMCTL_BASE}/api/dsp/mute", {"mute": bool(on)})
+    await _post("/api/dsp/mute", {"mute": bool(on)}, req)
     return RedirectResponse("/operator", status_code=303)
 
 @router.post("/operator/dsp/used")
@@ -265,8 +325,9 @@ async def op_dsp_used(req: Request, _=Depends(require_operator)):
     if channel is not None and new_val is not None:
         used = str(new_val).lower() in ("true", "1", "on", "yes")
         await _post(
-            f"{ROOMCTL_BASE}/api/dsp/used",
+            "/api/dsp/used",
             {"channel": channel, "used": used},
+            req,
         )
 
     return RedirectResponse("/operator", status_code=303)
@@ -274,6 +335,7 @@ async def op_dsp_used(req: Request, _=Depends(require_operator)):
 
 @router.post("/operator/dsp/gain")
 async def op_dsp_gain(
+    req: Request,
     bus: str = Form(...),
     delta: int = Form(...),
     _=Depends(require_operator),
@@ -282,8 +344,9 @@ async def op_dsp_gain(
     Handler per i pulsanti GAIN +/- (bus = in_a, out0..3).
     """
     await _post(
-        f"{ROOMCTL_BASE}/api/dsp/gain",
+        "/api/dsp/gain",
         {"bus": bus, "delta": int(delta)},
+        req,
     )
     # redirect per ricaricare pagina e label aggiornate
     return RedirectResponse("/operator", status_code=303)
@@ -291,6 +354,7 @@ async def op_dsp_gain(
 
 @router.post("/operator/dsp/volume")
 async def op_dsp_volume(
+    req: Request,
     bus: str = Form(...),
     delta: int = Form(...),
     _=Depends(require_operator),
@@ -299,14 +363,16 @@ async def op_dsp_volume(
     Handler per i pulsanti VOLUME +/- (bus = in_a, out0..3).
     """
     await _post(
-        f"{ROOMCTL_BASE}/api/dsp/volume",
+        "/api/dsp/volume",
         {"bus": bus, "delta": int(delta)},
+        req,
     )
     return RedirectResponse("/operator", status_code=303)
 
 
 @router.post("/operator/dsp/recall")
 async def op_dsp_recall(
+    req: Request,
     preset: str = Form(...),
     _=Depends(require_operator),
 ):
@@ -314,19 +380,20 @@ async def op_dsp_recall(
     Handler per i pulsanti Recall preset (F00, U01, U02, U03).
     """
     await _post(
-        f"{ROOMCTL_BASE}/api/dsp/recall",
+        "/api/dsp/recall",
         {"preset": preset},
+        req,
     )
     return RedirectResponse("/operator", status_code=303)
 
 @router.post('/operator/shelly/set')
-async def op_shelly_set(sid:str=Form(...),on:bool=Form(...),_=Depends(require_operator)):
- await _post(f"{ROOMCTL_BASE}/api/shelly/{sid}/set",{'on':bool(on)}); return RedirectResponse('/operator',status_code=303)
+async def op_shelly_set(req: Request,sid:str=Form(...),on:bool=Form(...),_=Depends(require_operator)):
+ await _post(f"/api/shelly/{sid}/set",{'on':bool(on)}, req); return RedirectResponse('/operator',status_code=303)
 
 @router.post('/operator/shelly/pulse')
-async def op_shelly_pulse(sid:str=Form(...),_=Depends(require_operator)):
+async def op_shelly_pulse(req: Request,sid:str=Form(...),_=Depends(require_operator)):
  #await _post(f"{ROOMCTL_BASE}/api/shelly/{sid}/set",{'on':True}); import asyncio; await asyncio.sleep(0.8); await _post(f"{ROOMCTL_BASE}/api/shelly/{sid}/set",{'on':False}); return RedirectResponse('/operator',status_code=303)
- await _post(f"{ROOMCTL_BASE}/api/shelly/{sid}/set", {'on': True})
+ await _post(f"/api/shelly/{sid}/set", {'on': True}, req)
  return RedirectResponse('/operator', status_code=303)
 
 
@@ -347,7 +414,7 @@ async def op_power_schedule(req: Request, _=Depends(require_operator)):
 
     state = get_public_state()
     try:
-        await _post(f"{ROOMCTL_BASE}/api/power/schedule", payload)
+        await _post("/api/power/schedule", payload, req)
         state["text"] = "Pianificazione alimentazione aggiornata"
     except HTTPException as exc:
         state["text"] = f"Errore salvataggio pianificazione: {exc.detail}"
@@ -379,8 +446,9 @@ async def ui_set_datetime(req: Request, _=Depends(require_operator)):
 
     try:
         await _post(
-            f"{ROOMCTL_BASE}/api/special/set_datetime",
+            "/api/special/set_datetime",
             {"datetime": dt.isoformat()},
+            req,
         )
         state["text"] = "Data e ora aggiornate"
     except HTTPException as exc:
@@ -391,11 +459,11 @@ async def ui_set_datetime(req: Request, _=Depends(require_operator)):
 
 
 @router.post('/ui/special/reboot_terminal')
-async def ui_reboot_terminal(_: bool = Depends(require_operator)):
+async def ui_reboot_terminal(req: Request, _: bool = Depends(require_operator)):
     state = get_public_state()
     try:
         # Adatta l’URL a come il backend espone il comando di reboot
-        await _post(f"{ROOMCTL_BASE}/api/special/reboot_terminal", {})
+        await _post("/api/special/reboot_terminal", {}, req)
         state["text"] = "Riavvio terminale richiesto..."
     except HTTPException as exc:
         state["text"] = f"Errore riavvio terminale: {exc.detail}"
